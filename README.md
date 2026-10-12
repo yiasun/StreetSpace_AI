@@ -1,44 +1,26 @@
 # StreetSpace AI
 
-A lightweight **spatial intelligence product demo** for street-level imagery.
+Interactive spatial-intelligence demo for street-level imagery: scene entities, relative depth, and visual-place similarity.
 
-The interface supports **中文 / English switching from the sidebar**, including tabs, controls, product notes, result tables and spatial statements.
+**Live demo:** add your Streamlit URL here after making the app public.
 
-The project turns one image into three interpretable capabilities:
+The interface supports **中文 / English** switching from the sidebar.
+
+## What the MVP does
 
 1. **Scene semantics** — DETR object detection
 2. **Relative spatial structure** — Depth Anything Small
 3. **Visual-place similarity** — CLIP ViT-B/32 retrieval
+4. **Interpretable output** — confidence, image-region descriptions, relative-depth response
+5. **Product instrumentation** — inference time, input resolution, downloadable JSON/CSV results
 
-The project is deliberately framed as an **MVP / product hypothesis test**, not as a world model. Its purpose is to demonstrate how mature perception models can be composed into a usable spatial-understanding experience, and to make model limitations visible.
+The project is deliberately framed as a **product hypothesis test**, not as a world model. The goal is to test how far mature perception models can go in providing a useful first layer of spatial understanding before adding heavier multi-view / 3D / world-model components.
 
-## Why this is portfolio-relevant
+## Product logic
 
-The demo connects a background in Visual Place Recognition (VPR), multimodal learning and model evaluation with a product-oriented workflow:
+**problem definition → technical option selection → runnable MVP → interpretable output → evaluation plan → next-step roadmap**
 
-**problem definition → technical option selection → runnable demo → interpretable output → evaluation plan → next-step roadmap**
-
-This is particularly relevant to technical AI product roles in spatial intelligence, robotics, 3D content, world models and embodied AI.
-
-## Features
-
-### Spatial Understanding
-Upload one street-level image and obtain:
-- detected entities and confidence scores;
-- image-region descriptions (left / center / right, upper / middle / lower);
-- normalized relative-depth responses;
-- structured, interpretable scene statements.
-
-### Similar Places
-Upload one query image and a gallery of 2–20 images. CLIP image embeddings rank visually similar places.
-
-### Product Notes
-The app explicitly documents:
-- the product hypothesis;
-- current MVP scope;
-- known limitations;
-- evaluation metrics;
-- roadmap toward multi-view / 3D / world-model capabilities.
+This connects a background in Visual Place Recognition (VPR), multimodal learning and model evaluation with technical AI product work in spatial intelligence, robotics, 3D content and embodied AI.
 
 ## Run locally
 
@@ -53,17 +35,17 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The first run downloads model weights from Hugging Face, so it requires internet access and may take several minutes.
+The first inference downloads model weights from Hugging Face and can take several minutes.
 
-## Recommended deployment
+## Deploy on Streamlit Community Cloud
 
-### Hugging Face Spaces
-1. Create a new **Streamlit** Space.
-2. Upload `app.py`, `requirements.txt`, and `.streamlit/config.toml`.
-3. Use a CPU instance for a basic demo or a GPU Space for faster inference.
+1. Push this repository to GitHub.
+2. Open Streamlit Community Cloud and create an app from the repository.
+3. Use `app.py` as the entrypoint.
+4. After deployment, open **App settings → Sharing** and choose **This app is public and searchable** if the link is going on a resume.
+5. Add the final `*.streamlit.app` URL near the top of this README and to the resume.
 
-### Streamlit Community Cloud
-Push this folder to GitHub, then deploy the repository from Streamlit Community Cloud.
+If the app redirects a visitor to Streamlit sign-in, it is still private and should not yet be used as a resume link.
 
 ## Models
 
@@ -71,18 +53,32 @@ Push this folder to GitHub, then deploy the repository from Streamlit Community 
 - `LiheYoung/depth-anything-small-hf` — monocular relative depth
 - `openai/clip-vit-base-patch32` — image embeddings / visual retrieval
 
-All three are loaded lazily so a user only downloads the model needed for the active feature.
+The detector and depth model are loaded when spatial analysis is requested. CLIP is loaded only when retrieval is requested. Streamlit resource caching reuses loaded models across reruns within the app process.
 
-## Important interpretation note
+## Product choices
 
-The depth map is treated as a **normalized relative model response**, not metric distance. This is intentional: the demo should expose uncertainty rather than claim geometric accuracy it does not have.
+- **Relative depth, not metric distance:** the demo avoids claiming real-world scale without calibration.
+- **Composable modules:** detection, depth and retrieval can be tested and replaced independently.
+- **Interpretable output first:** the user sees entities, confidence and spatial cues instead of only a black-box answer.
+- **MVP before 3D:** user value and evaluation criteria are tested before investing in multi-view reconstruction.
 
-## Suggested next iteration
+## Evaluation plan
 
-A stronger V2 could add:
-- VLM-generated scene graphs;
-- multi-view consistency;
-- street-scene Recall@K benchmark;
-- 3DGS / NeRF reconstruction;
-- task-based spatial evaluation;
-- latency / cost comparison across model options.
+- Detection quality on representative street scenes
+- Cross-view stability of spatial descriptions
+- Recall@K for visual-place retrieval
+- End-to-end latency
+- Human interpretability of outputs
+
+## Suggested V2
+
+- VLM-generated scene graphs
+- Multi-view consistency
+- A small labeled street-scene retrieval benchmark
+- 3DGS / NeRF reconstruction experiments
+- Task-driven spatial evaluation
+- Latency / cost comparison across model options
+
+## Data handling
+
+This application code does not save uploaded images to disk or a database. Uploaded files are used for the current interactive session and model inference only.
