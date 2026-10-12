@@ -2,10 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import List, Tuple
-import hashlib
-import io
-import json
-import time
 
 import numpy as np
 import pandas as pd
@@ -13,7 +9,7 @@ import streamlit as st
 from PIL import Image, ImageDraw
 
 st.set_page_config(
-    page_title="StreetSpace AI | Spatial Intelligence Demo",
+    page_title="StreetSpace AI",
     page_icon="🧭",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -29,8 +25,6 @@ CUSTOM_CSS = """
 .metric-card {border:1px solid rgba(49,51,63,.12); border-radius:14px; padding: 1rem 1.05rem; min-height: 120px;}
 .small {font-size:.88rem; opacity:.74;}
 .tag {display:inline-block; padding:.2rem .55rem; border:1px solid rgba(49,51,63,.15); border-radius:999px; margin:.15rem .25rem .15rem 0; font-size:.82rem;}
-.flow {border:1px solid rgba(49,51,63,.12); border-radius:14px; padding:1rem; text-align:center; min-height:100px;}
-.footer-note {font-size:.82rem; opacity:.65; text-align:center; margin-top:2rem;}
 hr {margin: 1.7rem 0;}
 </style>
 """
@@ -100,23 +94,6 @@ TEXT = {
         "eval_body": """1. **Perception quality** — detection precision on representative street scenes.\n2. **Spatial consistency** — whether image-region and relative-depth statements remain stable across viewpoint changes.\n3. **Retrieval usefulness** — Recall@K on a small labeled gallery.\n4. **Latency** — end-to-end response time on CPU/GPU.\n5. **Human interpretability** — whether users can understand why a result was produced.""",
         "positioning": "Product positioning",
         "tags": ["Spatial Intelligence", "Computer Vision", "VPR", "Multimodal-ready", "AI Product Demo", "Explainable Output"],
-        "runtime": "Inference time",
-        "object_count": "Detected objects",
-        "input_resolution": "Input resolution",
-        "download_report": "Download structured result (JSON)",
-        "download_ranking": "Download retrieval ranking (CSV)",
-        "architecture": "MVP architecture",
-        "arch_input": "Street image",
-        "arch_perception": "DETR\nScene entities",
-        "arch_depth": "Depth Anything\nRelative structure",
-        "arch_retrieval": "CLIP\nPlace similarity",
-        "arch_output": "Interpretable output",
-        "product_decisions": "Key product decisions",
-        "product_decisions_body": "- **Composable over monolithic:** separate capabilities make failures easier to diagnose and evaluate.\n- **Relative depth, not metric distance:** avoid claiming geometric accuracy that the model cannot guarantee.\n- **Interpretable output first:** expose entities, confidence and spatial cues before adding heavier world-model components.\n- **MVP before 3D:** validate user value and evaluation criteria before investing in multi-view reconstruction.",
-        "privacy": "Data handling",
-        "privacy_body": "This demo code does not save uploaded images to disk or a database. Files are used only for the current interactive session and model inference.",
-        "portfolio": "Portfolio demo by Ronggui Sun · MSc Computer Science, University of Auckland",
-        "image_too_large": "The image was resized for inference to keep the demo responsive.",
         "none_detected": "No high-confidence objects were detected. Try lowering the threshold or using a clearer street-level image.",
         "detected": "Detected {n} salient objects. Dominant scene elements: {dominant}.",
         "depth_unavailable": "depth unavailable",
@@ -190,23 +167,6 @@ TEXT = {
         "eval_body": """1. **感知质量** —— 在代表性街景上的目标检测准确性。\n2. **空间一致性** —— 视角变化后，图像区域与相对深度描述是否保持稳定。\n3. **检索有效性** —— 在小规模标注图库上计算 Recall@K。\n4. **响应延迟** —— CPU / GPU 上的端到端响应时间。\n5. **可解释性** —— 用户能否理解系统为什么产生当前结果。""",
         "positioning": "产品定位",
         "tags": ["空间智能", "计算机视觉", "VPR", "多模态", "AI 产品 Demo", "可解释输出"],
-        "runtime": "推理耗时",
-        "object_count": "检测目标数",
-        "input_resolution": "输入分辨率",
-        "download_report": "下载结构化结果（JSON）",
-        "download_ranking": "下载检索排序（CSV）",
-        "architecture": "MVP 架构",
-        "arch_input": "街景图像",
-        "arch_perception": "DETR\n场景实体",
-        "arch_depth": "Depth Anything\n相对空间结构",
-        "arch_retrieval": "CLIP\n地点相似度",
-        "arch_output": "可解释输出",
-        "product_decisions": "关键产品取舍",
-        "product_decisions_body": "- **模块组合优先于黑盒一体化：** 将能力拆开后，更容易定位失败原因并建立评价指标。\n- **只表达相对深度，不宣称真实距离：** 避免对模型几何能力作超出证据的承诺。\n- **先做可解释输出：** 在引入更重的世界模型能力前，先展示实体、置信度和空间线索。\n- **先验证 MVP，再进入 3D：** 先确认用户价值与评估方式，再投入多视角重建等更高成本方案。",
-        "privacy": "数据处理说明",
-        "privacy_body": "本 Demo 代码不会将上传图片写入磁盘或数据库；文件仅用于当前交互会话中的模型推理。",
-        "portfolio": "作品 Demo · 孙嵘贵｜奥克兰大学 MSc Computer Science",
-        "image_too_large": "为保证在线 Demo 响应速度，图片已自动缩放后再进行推理。",
         "none_detected": "未检测到高置信度目标。可以尝试降低置信度阈值，或使用更清晰的街景图片。",
         "detected": "检测到 {n} 个主要目标。场景中的主要元素：{dominant}。",
         "depth_unavailable": "无可用深度信息",
@@ -236,19 +196,6 @@ def t(lang: str, key: str):
 
 def localized_label(label: str, lang: str) -> str:
     return COCO_ZH.get(label, label) if lang == "zh" else label
-
-
-def open_uploaded(uploaded_file, max_edge: int = 1600) -> tuple[Image.Image, bool]:
-    """Open an uploaded image safely and downscale very large inputs for demo inference."""
-    image = Image.open(io.BytesIO(uploaded_file.getvalue())).convert("RGB")
-    resized = max(image.size) > max_edge
-    if resized:
-        image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
-    return image, resized
-
-
-def upload_fingerprint(uploaded_file) -> str:
-    return hashlib.sha1(uploaded_file.getvalue()).hexdigest()
 
 
 @dataclass
@@ -385,9 +332,27 @@ def cosine_sim(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 def clip_embeddings(images: List[Image.Image]) -> np.ndarray:
     model, processor, torch = load_clip()
     batch = processor(images=images, return_tensors="pt", padding=True)
-    with torch.no_grad():
-        features = model.get_image_features(**batch)
-    return features.cpu().numpy()
+
+    # Newer Transformers versions return BaseModelOutputWithPooling from
+    # CLIPModel.get_image_features(), while older releases returned a Tensor.
+    # Support both APIs so the Streamlit deployment is not tied to one version.
+    with torch.inference_mode():
+        output = model.get_image_features(**batch)
+
+    if hasattr(output, "pooler_output"):
+        features = output.pooler_output
+    elif torch.is_tensor(output):
+        features = output
+    elif isinstance(output, (tuple, list)) and output and torch.is_tensor(output[0]):
+        features = output[0]
+    else:
+        raise TypeError(
+            f"Unexpected CLIP image feature output type: {type(output).__name__}"
+        )
+
+    # Normalize once here; cosine_sim() also normalizes defensively.
+    features = features / features.norm(dim=-1, keepdim=True).clamp(min=1e-12)
+    return features.detach().float().cpu().numpy()
 
 
 def analyze_image(image: Image.Image, threshold: float):
@@ -463,10 +428,7 @@ with input_tab:
     )
 
     if uploaded:
-        image, was_resized = open_uploaded(uploaded)
-        current_image_key = upload_fingerprint(uploaded)
-        if was_resized:
-            st.caption(t(lang, "image_too_large"))
+        image = Image.open(uploaded).convert("RGB")
         c1, c2 = st.columns([1.15, 0.85])
         with c1:
             st.image(image, caption=t(lang, "input_image"), use_container_width=True)
@@ -486,22 +448,16 @@ with input_tab:
         if st.button(t(lang, "analyze"), type="primary", use_container_width=True):
             try:
                 with st.spinner(t(lang, "running")):
-                    started = time.perf_counter()
                     objects, depth_norm = analyze_image(image, threshold)
-                    elapsed = time.perf_counter() - started
-                st.session_state["analysis"] = (objects, depth_norm, image, elapsed, current_image_key)
+                st.session_state["analysis"] = (objects, depth_norm, image)
             except Exception as exc:
                 st.error(t(lang, "load_fail"))
                 st.exception(exc)
 
-    if uploaded and "analysis" in st.session_state and st.session_state["analysis"][4] == current_image_key:
-        objects, depth_norm, image, elapsed, _ = st.session_state["analysis"]
+    if "analysis" in st.session_state:
+        objects, depth_norm, image = st.session_state["analysis"]
         st.divider()
         st.subheader(t(lang, "outputs"))
-        m1, m2, m3 = st.columns(3)
-        m1.metric(t(lang, "object_count"), len(objects))
-        m2.metric(t(lang, "runtime"), f"{elapsed:.1f}s")
-        m3.metric(t(lang, "input_resolution"), f"{image.size[0]} × {image.size[1]}")
         v1, v2 = st.columns(2)
         with v1:
             st.image(draw_boxes(image, objects, lang), caption=t(lang, "entities"), use_container_width=True)
@@ -530,31 +486,6 @@ with input_tab:
 
         st.info(t(lang, "depth_note"))
 
-        report = {
-            "project": "StreetSpace AI",
-            "image_size": {"width": image.size[0], "height": image.size[1]},
-            "inference_seconds": round(elapsed, 3),
-            "summary": summary,
-            "objects": [
-                {
-                    "label": o.label,
-                    "localized_label": localized_label(o.label, lang),
-                    "confidence": round(o.score, 4),
-                    "relative_depth_response": None if o.relative_depth is None else round(o.relative_depth, 4),
-                    "box": list(o.box),
-                }
-                for o in objects
-            ],
-            "interpretation_note": t(lang, "depth_note"),
-        }
-        st.download_button(
-            t(lang, "download_report"),
-            data=json.dumps(report, ensure_ascii=False, indent=2),
-            file_name="streetspace_analysis.json",
-            mime="application/json",
-            use_container_width=True,
-        )
-
 with retrieval_tab:
     st.markdown(f"### {t(lang, 'visual_similarity')}")
     st.caption(t(lang, "retrieval_intro"))
@@ -570,17 +501,15 @@ with retrieval_tab:
         if len(gallery_files) > 20:
             st.warning(t(lang, "gallery_limit"))
         else:
-            query_img, _ = open_uploaded(q)
-            gallery_imgs = [open_uploaded(f)[0] for f in gallery_files]
+            query_img = Image.open(q).convert("RGB")
+            gallery_imgs = [Image.open(f).convert("RGB") for f in gallery_files]
             names = [f.name for f in gallery_files]
             st.image(query_img, caption=t(lang, "query"), width=360)
             if st.button(t(lang, "find_similar"), use_container_width=True):
                 try:
                     with st.spinner(t(lang, "encoding")):
-                        started = time.perf_counter()
                         feats = clip_embeddings([query_img] + gallery_imgs)
                         scores = cosine_sim(feats[:1], feats[1:])[0]
-                        retrieval_elapsed = time.perf_counter() - started
                     order = np.argsort(-scores)
                     ranked = pd.DataFrame(
                         {
@@ -589,17 +518,7 @@ with retrieval_tab:
                             t(lang, "cosine"): [round(float(scores[i]), 4) for i in order],
                         }
                     )
-                    r1, r2 = st.columns(2)
-                    r1.metric(t(lang, "runtime"), f"{retrieval_elapsed:.1f}s")
-                    r2.metric(t(lang, "gallery_images"), len(gallery_imgs))
                     st.dataframe(ranked, use_container_width=True, hide_index=True)
-                    st.download_button(
-                        t(lang, "download_ranking"),
-                        data=ranked.to_csv(index=False).encode("utf-8-sig"),
-                        file_name="streetspace_retrieval.csv",
-                        mime="text/csv",
-                        use_container_width=True,
-                    )
                     st.markdown(f"### {t(lang, 'top_matches')}")
                     topn = min(3, len(order))
                     cols = st.columns(topn)
@@ -613,15 +532,6 @@ with retrieval_tab:
 with product_tab:
     st.markdown(f"## {t(lang, 'why')}")
     st.markdown(t(lang, "product_body"))
-
-    st.markdown(f"### {t(lang, 'architecture')}")
-    a1, a2, a3, a4, a5 = st.columns(5)
-    for col, label in zip(
-        [a1, a2, a3, a4, a5],
-        [t(lang, "arch_input"), t(lang, "arch_perception"), t(lang, "arch_depth"), t(lang, "arch_retrieval"), t(lang, "arch_output")],
-    ):
-        with col:
-            st.markdown(f'<div class="flow"><b>{label.replace(chr(10), "<br>")}</b></div>', unsafe_allow_html=True)
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -638,13 +548,6 @@ with product_tab:
     st.markdown(f"### {t(lang, 'eval_plan')}")
     st.markdown(t(lang, "eval_body"))
 
-    st.markdown(f"### {t(lang, 'product_decisions')}")
-    st.markdown(t(lang, "product_decisions_body"))
-
-    st.markdown(f"### {t(lang, 'privacy')}")
-    st.caption(t(lang, "privacy_body"))
-
     st.markdown(f"### {t(lang, 'positioning')}")
     tags_html = "\n".join(f'<span class="tag">{tag}</span>' for tag in t(lang, "tags"))
     st.markdown(tags_html, unsafe_allow_html=True)
-    st.markdown(f'<div class="footer-note">{t(lang, "portfolio")}</div>', unsafe_allow_html=True)
